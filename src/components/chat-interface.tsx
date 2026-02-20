@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { m, AnimatePresence, useReducedMotion } from "framer-motion";
-import { ArrowUp, Menu, ChevronLeft, PlusCircle, Trash2 } from "lucide-react";
+import { ArrowUp, Menu, ChevronLeft, PlusCircle, Trash2, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
@@ -58,7 +58,7 @@ export function ChatInterface() {
   ]);
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showClearModal, setShowClearModal] = useState(false);
@@ -80,6 +80,11 @@ export function ChatInterface() {
       setGhostIndex((prev) => (prev + 1) % GHOST_SUGGESTIONS.length);
     }, 4000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Open sidebar by default on desktop, closed on mobile
+  useEffect(() => {
+    setSidebarOpen(window.innerWidth >= 768);
   }, []);
 
   // Initialize unique ID for the current session if not already set
@@ -478,25 +483,48 @@ export function ChatInterface() {
             )}
        </AnimatePresence>
 
-      {/* Sidebar: Memory Logs */}
+      {/* Sidebar: Memory Logs — Desktop: side panel / Mobile: slide-in overlay */}
       <AnimatePresence mode="wait">
           {isSidebarOpen && (
-              <m.div
+              <>
+                {/* Mobile backdrop overlay */}
+                <m.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="fixed inset-0 z-[49] bg-black/60 backdrop-blur-sm md:hidden"
+                  onClick={() => setSidebarOpen(false)}
+                />
+                <m.div
                    initial={{ x: -280, opacity: 0 }}
                    animate={{ x: 0, opacity: 1 }}
                    exit={{ x: -280, opacity: 0 }}
                    transition={shouldReduceMotion ? { duration: 0 } : springTransition}
-                   className="hidden md:flex flex-col border-r border-white/5 bg-black/40 h-full backdrop-blur-md overflow-hidden relative z-20 w-[280px] flex-shrink-0"
+                   className={cn(
+                     "flex flex-col border-r border-white/5 bg-black/95 md:bg-black/40 h-full backdrop-blur-xl md:backdrop-blur-md overflow-hidden relative z-50 w-[280px] flex-shrink-0",
+                     /* Mobile: fixed overlay; Desktop: normal sidebar flow */
+                     "fixed md:relative top-0 left-0 bottom-0"
+                   )}
                    style={{ willChange: "transform, opacity" }}
                >
+                  {/* Mobile close button */}
+                  <button
+                    onClick={() => setSidebarOpen(false)}
+                    className="absolute top-3 right-3 z-10 flex md:hidden items-center justify-center w-8 h-8 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-all"
+                    aria-label="Close sidebar"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+
                   <div className="p-4 border-b border-white/5 space-y-2">
-                       <button onClick={handleExit} className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors group w-full text-left">
+                       <button onClick={handleExit} className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors group w-full text-left min-h-[44px] md:min-h-0">
                             <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                             <span>Back to Home</span>
                        </button>
                        <button 
                             onClick={handleResetConversation}
-                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-all border border-white/5 hover:border-white/10 group"
+                            className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-all border border-white/5 hover:border-white/10 group min-h-[44px] md:min-h-0"
                         >
                             <PlusCircle className="w-4 h-4 text-nebula-violet group-hover:rotate-90 transition-transform" />
                             <span className="text-xs font-medium tracking-wide">New Chat</span>
@@ -523,7 +551,7 @@ export function ChatInterface() {
                             <span className="text-xs text-gray-500 font-mono">TODAY</span>
                             <button
                               onClick={() => setShowClearModal(true)}
-                              className="text-[10px] text-zinc-500 hover:text-red-400 transition-colors tracking-wide"
+                              className="text-[10px] text-zinc-500 hover:text-red-400 transition-colors tracking-wide min-h-[44px] md:min-h-0 flex items-center"
                             >
                               Clear All
                             </button>
@@ -544,7 +572,7 @@ export function ChatInterface() {
                                 <div
                                   onClick={() => loadConversation(chat.id)}
                                   className={cn(
-                                    "flex items-center justify-between p-2 rounded-lg text-xs mb-1 cursor-pointer transition-colors group",
+                                    "flex items-center justify-between p-2.5 md:p-2 rounded-lg text-xs mb-1 cursor-pointer transition-colors group min-h-[44px] md:min-h-0",
                                     currentId === chat.id
                                       ? "bg-white/10 text-white"
                                       : "bg-transparent text-gray-400 hover:bg-white/5"
@@ -557,12 +585,14 @@ export function ChatInterface() {
                                       handleDeleteChat(chat.id);
                                     }}
                                     className={cn(
-                                      "p-1 rounded-md text-gray-500 hover:text-red-400 hover:bg-white/5 transition-all flex-shrink-0",
-                                      hoveredChatId === chat.id ? "opacity-100" : "opacity-0"
+                                      "p-1.5 md:p-1 rounded-md text-gray-500 hover:text-red-400 hover:bg-white/5 transition-all flex-shrink-0",
+                                      /* Always show on mobile (no hover), hover-reveal on desktop */
+                                      "opacity-100 md:opacity-0",
+                                      hoveredChatId === chat.id && "md:opacity-100"
                                     )}
                                     title="Delete chat"
                                   >
-                                    <Trash2 className="w-3 h-3" />
+                                    <Trash2 className="w-3.5 h-3.5 md:w-3 md:h-3" />
                                   </button>
                                 </div>
                               </m.div>
@@ -593,7 +623,7 @@ export function ChatInterface() {
                                 <div
                                   onClick={() => loadConversation(chat.id)}
                                   className={cn(
-                                    "flex items-center justify-between p-2 rounded-lg text-xs mb-1 cursor-pointer transition-colors group",
+                                    "flex items-center justify-between p-2.5 md:p-2 rounded-lg text-xs mb-1 cursor-pointer transition-colors group min-h-[44px] md:min-h-0",
                                     currentId === chat.id
                                       ? "bg-white/10 text-white"
                                       : "bg-transparent text-gray-400 hover:bg-white/5"
@@ -606,12 +636,13 @@ export function ChatInterface() {
                                       handleDeleteChat(chat.id);
                                     }}
                                     className={cn(
-                                      "p-1 rounded-md text-gray-500 hover:text-red-400 hover:bg-white/5 transition-all flex-shrink-0",
-                                      hoveredChatId === chat.id ? "opacity-100" : "opacity-0"
+                                      "p-1.5 md:p-1 rounded-md text-gray-500 hover:text-red-400 hover:bg-white/5 transition-all flex-shrink-0",
+                                      "opacity-100 md:opacity-0",
+                                      hoveredChatId === chat.id && "md:opacity-100"
                                     )}
                                     title="Delete chat"
                                   >
-                                    <Trash2 className="w-3 h-3" />
+                                    <Trash2 className="w-3.5 h-3.5 md:w-3 md:h-3" />
                                   </button>
                                 </div>
                               </m.div>
@@ -629,7 +660,7 @@ export function ChatInterface() {
                   <div className="p-4 border-t border-white/5 space-y-3">
                     {user ? (
                       <>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 min-h-[44px]">
                             {user.photoURL ? (
                               // eslint-disable-next-line @next/next/no-img-element -- external auth avatar URL
                               <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full" referrerPolicy="no-referrer" />
@@ -648,7 +679,7 @@ export function ChatInterface() {
                         {user.isAnonymous && (
                           <button
                             onClick={() => linkWithGoogle().catch(console.error)}
-                            className="w-full text-[10px] text-center py-1.5 rounded-lg border border-white/5 text-gray-500 hover:text-white hover:border-white/10 transition-colors"
+                            className="w-full text-xs md:text-[10px] text-center py-2.5 md:py-1.5 rounded-lg border border-white/5 text-gray-500 hover:text-white hover:border-white/10 transition-colors min-h-[44px] md:min-h-0"
                           >
                             Link Google Account
                           </button>
@@ -660,40 +691,41 @@ export function ChatInterface() {
                             hasMigrated.current = false;
                             handleResetConversation();
                           }}
-                          className="w-full text-[10px] text-center py-1.5 rounded-lg text-gray-600 hover:text-red-400 transition-colors"
+                          className="w-full text-xs md:text-[10px] text-center py-2.5 md:py-1.5 rounded-lg text-gray-600 hover:text-red-400 transition-colors min-h-[44px] md:min-h-0"
                         >
                           Sign Out
                         </button>
                       </>
                     ) : (
-                      <>
+                      <div className="flex flex-col gap-2.5">
                         <button
                           onClick={signInWithGoogle}
-                          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-white text-black text-[11px] font-medium hover:bg-white/90 transition-all"
+                          className="w-full flex items-center justify-center gap-2 px-3 py-3 md:py-2 rounded-lg bg-white text-black text-xs md:text-[11px] font-medium hover:bg-white/90 active:bg-white/80 transition-all min-h-[44px]"
                         >
-                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                          <svg className="w-4 h-4 md:w-3.5 md:h-3.5" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
                           Sign in with Google
                         </button>
                         <button
                           onClick={signInAsGuest}
-                          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-white/5 text-[11px] text-gray-400 hover:text-white hover:border-white/10 hover:bg-white/5 transition-all"
+                          className="w-full flex items-center justify-center gap-2 px-3 py-3 md:py-2 rounded-lg border border-white/5 text-xs md:text-[11px] text-gray-400 hover:text-white hover:border-white/10 hover:bg-white/5 active:bg-white/10 transition-all min-h-[44px]"
                         >
                           <span className="text-sm">👤</span>
                           Login as Guest
                         </button>
-                      </>
+                      </div>
                     )}
                   </div>
               </m.div>
+              </>
           )}
       </AnimatePresence>
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col relative h-full">
-        {/* Toggle Sidebar Button (Desktop) */}
+        {/* Toggle Sidebar Button (visible on both mobile and desktop when sidebar is closed) */}
         {!isSidebarOpen && (
-             <button onClick={() => setSidebarOpen(true)} className="absolute top-4 left-4 z-30 text-gray-500 hover:text-white transition-colors p-2 rounded-full bg-black/40 border border-white/5 hidden md:block">
-                <Menu className="w-4 h-4" />
+             <button onClick={() => setSidebarOpen(true)} className="absolute top-4 left-4 z-30 text-gray-500 hover:text-white transition-colors p-2.5 md:p-2 rounded-full bg-black/40 border border-white/5 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center">
+                <Menu className="w-5 h-5 md:w-4 md:h-4" />
              </button>
         )}
 
