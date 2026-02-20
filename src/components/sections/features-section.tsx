@@ -1,13 +1,13 @@
 "use client";
 
 import { m } from "framer-motion";
-import { Cpu, Zap, Eye, Globe } from "lucide-react";
+import { Cpu, Zap, MessageSquareText, Globe } from "lucide-react";
 
 const features = [
   {
-    icon: Eye,
-    title: "Stellar Multimodal Analysis",
-    desc: "Seamlessly process high-resolution imagery and complex technical documentation in a single context.",
+    icon: MessageSquareText,
+    title: "Real-Time Scientific Dialogue",
+    desc: "Stream rich, Markdown-formatted astrophysics reports with equations, tables, and structured data in real time.",
   },
   {
     icon: Zap,
