@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
 import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
@@ -17,9 +17,19 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+export const viewport: Viewport = {
+  themeColor: "#000000",
+  width: "device-width",
+  initialScale: 1,
+};
+
 export const metadata: Metadata = {
-  title: "LUNAR | Elite AI Intelligence",
-  description: "The Intelligence of the Night. Powered by Gemini 2.0.",
+  title: "LUNAR | Space Intelligence",
+  description: "Advanced planetary and stellar intelligence layer",
+  icons: {
+    icon: "/logo.svg",
+    apple: "/logo.svg",
+  },
 };
 
 export default function RootLayout({
