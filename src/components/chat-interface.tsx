@@ -151,6 +151,9 @@ export function ChatInterface() {
   useEffect(() => {
     if (authLoading) return;
 
+    // Reset migration flag on every user change so local→Firestore merge re-runs
+    hasMigrated.current = false;
+
     // Always start by loading localStorage (instant, always available)
     const localChats = loadFromLocalStorage();
     if (localChats.length > 0) {

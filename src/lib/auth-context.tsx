@@ -18,7 +18,7 @@ import {
   signInWithCredential,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { migrateChatsToUser } from "@/lib/firestore";
+import { getAllChatsOnce, saveChatToFirestore } from "@/lib/firestore";
 
 interface AuthContextType {
   user: User | null;
@@ -79,7 +79,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error: unknown) {
       const code = (error as { code?: string })?.code;
       if (code === "auth/credential-already-in-use") {
-        // Old anonymous user's data lives under oldUid — read it BEFORE switching
+        // ---- 1. Snapshot old chats BEFORE switching auth ----
+        // Read from Firestore while still authenticated as the anonymous user
+        let oldChats: { id: string; title: string; messages: { id: string; role: "user" | "lunar"; content: string; timestamp: Date }[]; lastModified: number }[] = [];
+        try {
+          oldChats = await getAllChatsOnce(oldUid);
+        } catch {
+          // Firestore read failed — fall back to localStorage
+        }
+
+        // Also grab localStorage backup (may have unsaved chats)
+        try {
+          const raw = localStorage.getItem("lunar-chat-history");
+          if (raw) {
+            const localChats = JSON.parse(raw).map((c: Record<string, unknown>) => ({
+              ...c,
+              messages: ((c.messages as Record<string, unknown>[]) || []).map((m: Record<string, unknown>) => ({
+                ...m,
+                timestamp: new Date(m.timestamp as string),
+              })),
+            }));
+            // Merge: include any chats in localStorage not already in Firestore snapshot
+            const snapshotIds = new Set(oldChats.map((c) => c.id));
+            for (const lc of localChats) {
+              if (!snapshotIds.has(lc.id)) oldChats.push(lc);
+            }
+          }
+        } catch { /* localStorage parse error */ }
+
+        // ---- 2. Switch to the existing Google account ----
         const credential = GoogleAuthProvider.credentialFromError(error as import("firebase/auth").AuthError);
         let newUser: User | null = null;
         if (credential) {
@@ -89,9 +117,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const result = await signInWithPopup(auth, googleProvider);
           newUser = result.user;
         }
-        // Migrate Firestore chats from anonymous UID → Google UID
-        if (newUser && newUser.uid !== oldUid) {
-          migrateChatsToUser(oldUid, newUser.uid).catch(console.error);
+
+        // ---- 3. Migrate old chats to the Google user's Firestore ----
+        if (newUser && newUser.uid !== oldUid && oldChats.length > 0) {
+          try {
+            const existingChats = await getAllChatsOnce(newUser.uid);
+            const existingIds = new Set(existingChats.map((c) => c.id));
+            const toMigrate = oldChats.filter((c) => !existingIds.has(c.id));
+            if (toMigrate.length > 0) {
+              await Promise.all(
+                toMigrate.map((chat) =>
+                  saveChatToFirestore(newUser!.uid, chat.id, chat.title || "Imported Chat", chat.messages)
+                )
+              );
+            }
+          } catch (err) {
+            console.error("Chat migration to Google account failed:", err);
+          }
         }
       } else if (
         code !== "auth/cancelled-popup-request" &&
