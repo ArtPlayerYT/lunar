@@ -6,24 +6,24 @@ import { Cpu, Zap, Eye, Globe } from "lucide-react";
 const features = [
   {
     icon: Eye,
-    title: "Multimodal Processing",
-    desc: "Seamlessly analyze text, code, images, and audio in a single stream."
+    title: "Stellar Multimodal Analysis",
+    desc: "Seamlessly process high-resolution imagery and complex technical documentation in a single context.",
   },
   {
     icon: Zap,
-    title: "Sub-second Latency",
-    desc: "Responses delivered at the speed of thought."
+    title: "Orbital Streaming Speed",
+    desc: "Powered by Gemini 2.0 Flash for sub-second token generation and instant response streaming.",
   },
   {
     icon: Globe,
-    title: "Cosmic Reasoning",
-    desc: "Accessing the entirety of human knowledge with deep comprehension."
+    title: "Advanced Celestial Reasoning",
+    desc: "Specialized intelligence layer trained on astrophysics, orbital mechanics, and stellar phenomena.",
   },
   {
     icon: Cpu,
-    title: "Adaptive Memory",
-    desc: "Context-aware interactions that evolve with your conversation."
-  }
+    title: "Persistent Mission Logs",
+    desc: "Secure session memory powered by Firebase Firestore, preserving your planetary inquiries across all devices.",
+  },
 ];
 
 export function FeaturesSection() {
@@ -37,14 +37,14 @@ export function FeaturesSection() {
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: i * 0.1 }}
             viewport={{ once: true }}
-            className="group relative p-8 rounded-2xl border border-white/5 bg-white/5 backdrop-blur-sm transition-colors hover:bg-white/10"
+            className="group relative p-8 rounded-2xl border border-white/5 bg-white/5 backdrop-blur-sm transition-all duration-[16ms] hover:bg-white/10"
           >
-             <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl pointer-events-none" />
-             
-             <f.icon className="w-8 h-8 text-lunar-silver mb-6 group-hover:text-white transition-colors" />
-             
-             <h3 className="text-lg font-semibold text-white mb-2">{f.title}</h3>
-             <p className="text-sm text-gray-400 leading-relaxed">
+             <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-[16ms] rounded-2xl pointer-events-none" />
+
+             <f.icon className="w-8 h-8 text-lunar-silver mb-6 group-hover:text-white transition-colors duration-[16ms]" />
+
+             <h3 className="text-lg font-semibold text-white mb-2 font-mono" style={{ lineHeight: '1.5' }}>{f.title}</h3>
+             <p className="text-sm text-gray-400 font-light" style={{ lineHeight: '1.5' }}>
                {f.desc}
              </p>
           </m.div>
