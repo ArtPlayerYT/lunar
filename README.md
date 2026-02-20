@@ -148,7 +148,7 @@ src/
 3. Add all environment variables from `.env.example` to the Vercel project settings
 4. Deploy — Vercel auto-detects Next.js
 
-**Live Demo:** [*your-deployment-url.vercel.app*](https://lunar-vert.vercel.app/)
+**Live Demo:** [*https://lunar-vert.vercel.app/*](https://lunar-vert.vercel.app/)
 
 ## License
 
