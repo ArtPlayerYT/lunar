@@ -247,12 +247,12 @@ export function ChatInterface() {
     }
   }, [messages, currentId, user, authLoading]);
 
-  // Auto-scroll: smooth scroll to bottom whenever messages update (including during streaming)
+  // Auto-scroll: instant during streaming for reliability, smooth otherwise
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({
         top: scrollRef.current.scrollHeight,
-        behavior: "smooth",
+        behavior: isProcessing ? "instant" : "smooth",
       });
     }
   }, [messages, isProcessing, error]);
@@ -334,33 +334,60 @@ export function ChatInterface() {
 
       const decoder = new TextDecoder();
       let done = false;
+      let sseBuffer = '';
 
       while (!done) {
-        const { value, done:doneReading } = await reader.read();
+        const { value, done: doneReading } = await reader.read();
         done = doneReading;
-        const chunkValue = decoder.decode(value, { stream: true });
-        
-        const lines = chunkValue.split('\n');
-        for (const line of lines) {
-           if (line.startsWith('data: ')) {
-               const data = line.slice(6);
-               if (data === '[DONE]') break;
-               try {
-                  const parsed = JSON.parse(data);
-                  const content = parsed.choices[0]?.delta?.content || "";
-                  if (content) {
-                    setMessages((prev) =>
-                        prev.map((msg) =>
-                        msg.id === assistantMessageId
-                            ? { ...msg, content: msg.content + content }
-                            : msg
-                        )
-                    );
-                  }
-               } catch {
-                   // ignore parse errors
-               }
-           }
+        sseBuffer += decoder.decode(value, { stream: true });
+
+        // Split on newlines but keep the last (potentially incomplete) segment as buffer
+        const segments = sseBuffer.split('\n');
+        sseBuffer = segments.pop() || '';
+
+        for (const line of segments) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('data: ')) {
+            const data = trimmed.slice(6);
+            if (data === '[DONE]') { done = true; break; }
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices?.[0]?.delta?.content || '';
+              if (content) {
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, content: msg.content + content }
+                      : msg
+                  )
+                );
+              }
+            } catch {
+              // Incomplete JSON — will be reassembled in next chunk
+            }
+          }
+        }
+      }
+
+      // Process any remaining data left in the buffer
+      if (sseBuffer.trim().startsWith('data: ')) {
+        const data = sseBuffer.trim().slice(6);
+        if (data && data !== '[DONE]') {
+          try {
+            const parsed = JSON.parse(data);
+            const content = parsed.choices?.[0]?.delta?.content || '';
+            if (content) {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === assistantMessageId
+                    ? { ...msg, content: msg.content + content }
+                    : msg
+                )
+              );
+            }
+          } catch {
+            // Final buffer wasn't valid
+          }
         }
       }
     } catch (err: unknown) {
@@ -836,18 +863,20 @@ export function ChatInterface() {
 
                 <div
                     className={cn(
-                    "relative p-3 md:p-6 rounded-2xl max-w-[90%] md:max-w-[75%] leading-relaxed tracking-wide font-light shadow-2xl backdrop-blur-md prose prose-invert prose-p:leading-relaxed prose-pre:bg-black/50 prose-pre:border prose-pre:border-white/10",
+                    "relative p-3 md:p-6 rounded-2xl max-w-[90%] md:max-w-[75%] leading-relaxed tracking-wide font-light shadow-2xl backdrop-blur-md",
                     msg.role === "user"
                         ? "bg-white/10 text-white border border-white/10 rounded-tr-sm"
                         : "bg-black/40 text-gray-100 border border-white/5 rounded-tl-sm"
                     )}
-                    style={{ fontSize: "clamp(0.8125rem, 2vw, 1rem)", lineHeight: '1.6' }}
+                    style={{ fontSize: "clamp(0.8125rem, 2vw, 1rem)", lineHeight: '1.6', overflowWrap: 'break-word', wordBreak: 'break-word' }}
                 >
-                    <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                    >
-                        {msg.content}
-                    </ReactMarkdown>
+                    <div className="prose prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-black/50 prose-pre:border prose-pre:border-white/10 prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5">
+                      <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                      >
+                          {msg.content}
+                      </ReactMarkdown>
+                    </div>
                 </div>
                 </m.div>
             ))}
