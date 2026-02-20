@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { m, AnimatePresence, useReducedMotion } from "framer-motion";
-import { ArrowUp, Menu, ChevronLeft, PlusCircle, Trash2, X } from "lucide-react";
+import { ArrowUp, Menu, ChevronLeft, PlusCircle, Trash2, X, LogIn } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
@@ -67,8 +67,10 @@ export function ChatInterface() {
   const [currentId, setCurrentId] = useState<string>("");
   const [firestoreError, setFirestoreError] = useState<string | null>(null);
   const [ghostIndex, setGhostIndex] = useState(0);
+  const [showMobileAuth, setShowMobileAuth] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const router = useRouter();
   const { user, loading: authLoading, signInWithGoogle, signInAsGuest, linkWithGoogle, signOut } = useAuth();
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -86,6 +88,28 @@ export function ChatInterface() {
   useEffect(() => {
     setSidebarOpen(window.innerWidth >= 768);
   }, []);
+
+  // Swipe-to-open sidebar gesture (mobile)
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const touch = e.changedTouches[0];
+    const deltaX = touch.clientX - touchStartRef.current.x;
+    const deltaY = Math.abs(touch.clientY - touchStartRef.current.y);
+    // Swipe right from left edge to open sidebar
+    if (deltaX > 80 && deltaY < 80 && touchStartRef.current.x < 40 && !isSidebarOpen) {
+      setSidebarOpen(true);
+    }
+    // Swipe left to close sidebar
+    if (deltaX < -80 && deltaY < 80 && isSidebarOpen) {
+      setSidebarOpen(false);
+    }
+    touchStartRef.current = null;
+  }, [isSidebarOpen]);
 
   // Initialize unique ID for the current session if not already set
   useEffect(() => {
@@ -223,10 +247,13 @@ export function ChatInterface() {
     }
   }, [messages, currentId, user, authLoading]);
 
-  // Auto-scroll
+  // Auto-scroll: smooth scroll to bottom whenever messages update (including during streaming)
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: "smooth",
+      });
     }
   }, [messages, isProcessing, error]);
 
@@ -421,7 +448,11 @@ export function ChatInterface() {
   });
 
   return (
-    <div className="flex w-full h-full relative overflow-hidden bg-black/20 backdrop-blur-sm rounded-3xl border border-white/5">
+    <div
+      className="flex w-full h-full relative overflow-hidden bg-black/20 backdrop-blur-sm rounded-2xl md:rounded-3xl border border-white/5"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
        {/* Clear All Confirmation Modal */}
        <AnimatePresence>
          {showClearModal && (
@@ -740,9 +771,9 @@ export function ChatInterface() {
 
         <div
             ref={scrollRef}
-            className="flex-1 overflow-y-auto px-4 md:px-20 py-8 no-scrollbar scroll-smooth"
+            className="flex-1 overflow-y-auto px-3 md:px-20 py-6 md:py-8 no-scrollbar scroll-smooth"
         >
-            <div className="max-w-3xl mx-auto space-y-12 pb-32">
+            <div className="max-w-3xl mx-auto space-y-8 md:space-y-12 pb-36 md:pb-32">
 
             {/* Quick-Link Starter Cards */}
             {messages.length === 1 && messages[0].role === "lunar" && !isProcessing && (
@@ -786,7 +817,7 @@ export function ChatInterface() {
                  animate={{ opacity: 1, y: 0 }}
                  transition={springTransition}
                  className={cn(
-                     "flex gap-6",
+                     "flex gap-3 md:gap-6",
                      msg.role === "user" ? "justify-end" : "justify-start"
                  )}
                  style={{ willChange: "transform, opacity" }}
@@ -795,7 +826,7 @@ export function ChatInterface() {
                     <div className="flex-shrink-0 mt-1 overflow-visible pl-1 ml-1">
                          {/* Pulse Logo if processing AND last message, else static Logo */}
                          <LunarLogo 
-                            className="w-10 h-10" 
+                            className="w-7 h-7 md:w-10 md:h-10" 
                             isThinking={isProcessing && idx === messages.length - 1}
                         />
                     </div>
@@ -803,11 +834,12 @@ export function ChatInterface() {
 
                 <div
                     className={cn(
-                    "relative p-4 md:p-6 rounded-2xl max-w-[85%] md:max-w-[75%] text-sm md:text-base leading-relaxed tracking-wide font-light shadow-2xl backdrop-blur-md prose prose-invert prose-p:leading-relaxed prose-pre:bg-black/50 prose-pre:border prose-pre:border-white/10",
+                    "relative p-3 md:p-6 rounded-2xl max-w-[90%] md:max-w-[75%] leading-relaxed tracking-wide font-light shadow-2xl backdrop-blur-md prose prose-invert prose-p:leading-relaxed prose-pre:bg-black/50 prose-pre:border prose-pre:border-white/10",
                     msg.role === "user"
                         ? "bg-white/10 text-white border border-white/10 rounded-tr-sm"
                         : "bg-black/40 text-gray-100 border border-white/5 rounded-tl-sm"
                     )}
+                    style={{ fontSize: "clamp(0.8125rem, 2vw, 1rem)" }}
                 >
                     <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
@@ -821,10 +853,10 @@ export function ChatInterface() {
                  <m.div 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="flex gap-6 justify-start opacity-70"
+                    className="flex gap-3 md:gap-6 justify-start opacity-70"
                  >
                      <div className="flex-shrink-0 mt-1 overflow-visible pl-1 ml-1">
-                         <LunarLogo className="w-10 h-10" isThinking={true} />
+                         <LunarLogo className="w-7 h-7 md:w-10 md:h-10" isThinking={true} />
                      </div>
                      <div className="flex items-center">
                          <span className="text-xs tracking-widest text-nebula-violet animate-pulse">ANALYZING STREAM...</span>
@@ -847,8 +879,60 @@ export function ChatInterface() {
             </div>
         </div>
 
+        {/* Mobile Auth Bottom Dock — shown when not signed in & sidebar is closed */}
+        <AnimatePresence>
+          {!user && !authLoading && !isSidebarOpen && (
+            <m.div
+              initial={{ y: 100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 100, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 400, damping: 35 }}
+              className="absolute top-3 right-3 z-40 md:hidden"
+            >
+              {showMobileAuth ? (
+                <m.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="flex flex-col gap-2 p-3 rounded-2xl bg-black/90 backdrop-blur-xl border border-white/10 shadow-2xl min-w-[200px]"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] text-gray-500 tracking-widest uppercase font-medium">Access</span>
+                    <button onClick={() => setShowMobileAuth(false)} className="p-1 text-gray-500 hover:text-white">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => { signInWithGoogle(); setShowMobileAuth(false); }}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-3 rounded-xl bg-white text-black text-xs font-medium hover:bg-white/90 active:bg-white/80 transition-all min-h-[48px]"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                    Sign in with Google
+                  </button>
+                  <button
+                    onClick={() => { signInAsGuest(); setShowMobileAuth(false); }}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-3 rounded-xl border border-white/10 text-xs text-gray-400 hover:text-white hover:bg-white/5 active:bg-white/10 transition-all min-h-[48px]"
+                  >
+                    <span className="text-sm">👤</span>
+                    Login as Guest
+                  </button>
+                </m.div>
+              ) : (
+                <m.button
+                  whileTap={{ scale: 0.92 }}
+                  onClick={() => setShowMobileAuth(true)}
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-white/10 backdrop-blur-xl border border-white/10 text-white/80 hover:text-white hover:bg-white/15 transition-all shadow-lg min-h-[44px]"
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span className="text-xs font-medium tracking-wide">Sign In</span>
+                </m.button>
+              )}
+            </m.div>
+          )}
+        </AnimatePresence>
+
         {/* Input Dock */}
-        <div className="absolute bottom-6 left-0 right-0 px-4 md:px-0 z-50">
+        <div className="absolute bottom-0 left-0 right-0 px-3 md:px-0 z-50" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1.5rem)" }}>
             <div className="max-w-2xl mx-auto relative group">
                 {/* Input Glow */}
                 <div className={cn(
@@ -879,7 +963,8 @@ export function ChatInterface() {
                         onChange={(e) => setInput(e.target.value)}
                         placeholder={input ? undefined : GHOST_SUGGESTIONS[ghostIndex]}
                         autoFocus
-                        className="flex-1 bg-transparent border-none outline-none text-white placeholder-gray-500/60 font-light tracking-wide text-sm md:text-base py-3"
+                        className="flex-1 bg-transparent border-none outline-none text-white placeholder-gray-500/60 font-light tracking-wide py-3"
+                        style={{ fontSize: "clamp(0.875rem, 2.5vw, 1rem)" }}
                     />
 
                     <button

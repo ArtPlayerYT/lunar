@@ -181,9 +181,9 @@ export const Header = memo(function Header({ onNavigate }: HeaderProps) {
         </nav>
 
         {/* Mobile: Clock (compact) + Audio + Hamburger */}
-        <div className="flex md:hidden items-center gap-2">
-          {/* Compact mobile clock */}
-          <div className="flex items-center gap-1 scale-90 origin-right">
+        <div className="flex md:hidden items-center gap-1.5 sm:gap-2">
+          {/* Compact mobile clock — hidden on very small screens (<400px) */}
+          <div className="hidden min-[400px]:flex items-center gap-1 scale-90 origin-right">
             <span
               ref={mobileClockRef}
               style={{ fontFamily: "var(--font-mono), 'JetBrains Mono', monospace" }}

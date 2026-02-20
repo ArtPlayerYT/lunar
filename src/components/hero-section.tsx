@@ -35,10 +35,10 @@ export function HeroSection() {
           transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
         >
           <h1 
-            className="text-5xl md:text-7xl lg:text-8xl font-medium mb-8 tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-gray-400 overflow-visible pb-2"
+            className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-medium mb-8 tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-gray-400 overflow-visible pb-2"
             style={{ 
               letterSpacing: '-0.05em', 
-              lineHeight: '1.25',
+              lineHeight: '1.5',
               paddingBottom: '0.2em',
               filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.6))',
             }}
